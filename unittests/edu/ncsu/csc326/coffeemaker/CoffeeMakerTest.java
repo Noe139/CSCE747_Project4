@@ -1,209 +1,192 @@
-package edu.ncsu.csc326.coffeemaker;
-
-import edu.ncsu.csc326.coffeemaker.exceptions.InventoryException;
-
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-public class CoffeeMakerTest
-{
+public class CoffeeMakerTest {
+    private CoffeeMaker coffeeMaker;
+    private Recipe recipe1;
+    private Recipe recipe2;
 
-	private CoffeeMaker cm;
-	private Recipe r1;
-	private Recipe r2;
-	private Recipe r3;
+    @Before
+    public void setUp() {
+        coffeeMaker = new CoffeeMaker();
 
-	@Before
-	public void setUp() throws Exception
-	{
-		cm = new CoffeeMaker();
+        recipe1 = new Recipe();
+        recipe1.setName("Coffee");
+        recipe1.setPrice(50);
+        recipe1.setAmtCoffee(3);
+        recipe1.setAmtMilk(1);
+        recipe1.setAmtSugar(1);
+        recipe1.setAmtChocolate(0);
 
-		//Set up for r1
-		r1 = new Recipe();
-		r1.setName("Coffee1");
-		r1.setAmtChocolate("1");
-		r1.setAmtCoffee("2");
-		r1.setAmtMilk("3");
-		r1.setAmtSugar("4");
-		r1.setPrice("5");
+        recipe2 = new Recipe();
+        recipe2.setName("Latte");
+        recipe2.setPrice(100);
+        recipe2.setAmtCoffee(3);
+        recipe2.setAmtMilk(3);
+        recipe2.setAmtSugar(1);
+        recipe2.setAmtChocolate(0);
+    }
 
-		//Set up for r2
-		r2 = new Recipe();
-		r2.setName("Coffee2");
-		r2.setAmtChocolate("6");
-		r2.setAmtCoffee("7");
-		r2.setAmtMilk("8");
-		r2.setAmtSugar("9");
-		r2.setPrice("10");
+    @Test
+    public void testAddRecipe() {
+        assertTrue(coffeeMaker.addRecipe(recipe1));
+        assertTrue(coffeeMaker.addRecipe(recipe2));
+        assertFalse(coffeeMaker.addRecipe(recipe1)); // Adding duplicate recipe
+        Recipe[] recipes = coffeeMaker.getRecipes();
+        assertEquals(recipe1, recipes[0]);
+        assertEquals(recipe2, recipes[1]);
+    }
 
-		cm.addRecipe(r1);
-		cm.addRecipe(r2);
+    @Test
+    public void testDeleteRecipe() {
+        coffeeMaker.addRecipe(recipe1);
+        assertTrue(coffeeMaker.deleteRecipe(recipe1));
+        assertFalse(coffeeMaker.deleteRecipe(recipe1)); // Deleting non-existent recipe
+        Recipe[] recipes = coffeeMaker.getRecipes();
+        assertNull(recipes[0]);
+    }
 
-	} // End of setUp method
+    @Test
+    public void testEditRecipe() {
+        coffeeMaker.addRecipe(recipe1);
+        Recipe newRecipe = new Recipe();
+        newRecipe.setName("Coffee");
+        newRecipe.setPrice(60);
+        newRecipe.setAmtCoffee(2);
+        newRecipe.setAmtMilk(2);
+        newRecipe.setAmtSugar(2);
+        newRecipe.setAmtChocolate(1);
+        assertTrue(coffeeMaker.editRecipe(recipe1, newRecipe));
+        assertFalse(coffeeMaker.editRecipe(recipe2, newRecipe)); // Editing non-existent recipe
+        Recipe[] recipes = coffeeMaker.getRecipes();
+        assertEquals(newRecipe, recipes[0]);
+    }
 
+    @Test
+    public void testAddInventory() throws InventoryException {
+        coffeeMaker.addInventory(10, 10, 10, 10);
+        Inventory inventory = coffeeMaker.checkInventory();
+        assertEquals(25, inventory.getCoffee());
+        assertEquals(25, inventory.getMilk());
+        assertEquals(25, inventory.getSugar());
+        assertEquals(25, inventory.getChocolate());
+    }
 
-	// -------------------------------------------------------------------
-	// tests addInventory & checkInventory methods in CoffeeMaker class
-	// -------------------------------------------------------------------
-	@Test
-	public void addInventoryTest()
-	{
-		String inv = cm.checkInventory();
+    @Test(expected = InventoryException.class)
+    public void testAddInventoryInvalid() throws InventoryException {
+        coffeeMaker.addInventory("four", "3", "milk", "2");
+    }
 
-		System.out.println("");
-		System.out.println("Initial Inventory");
-		System.out.println(inv);
+    @Test
+    public void testCheckInventory() {
+        Inventory inventory = coffeeMaker.checkInventory();
+        assertNotNull(inventory);
+        assertEquals(15, inventory.getCoffee()); // Default inventory
+        assertEquals(15, inventory.getMilk());
+        assertEquals(15, inventory.getSugar());
+        assertEquals(15, inventory.getChocolate());
+    }
 
-		int initialCoffee = getIngredientCount(inv,"Coffee");
-		int initialMilk = getIngredientCount(inv,"Milk");
-		int initialSugar = getIngredientCount(inv,"Sugar");
-		int initialChocolate = getIngredientCount(inv,"Chocolate");
+    @Test
+    public void testPurchaseBeverage() {
+        coffeeMaker.addRecipe(recipe1);
+        assertEquals(50, coffeeMaker.makeCoffee(recipe1, 100));
+        Inventory inventory = coffeeMaker.checkInventory();
+        assertEquals(12, inventory.getCoffee()); // Assuming initial inventory was 15
+        assertEquals(14, inventory.getMilk());
+        assertEquals(14, inventory.getSugar());
+        assertEquals(15, inventory.getChocolate());
+    }
 
-		try
-		{
-			cm.addInventory("1","2","3","4");
-		}
-		catch (InventoryException e)
-		{
-			fail("InventoryException should not be thrown");
-    		}
+    @Test
+    public void testPurchaseBeverageInsufficientFunds() {
+        coffeeMaker.addRecipe(recipe1);
+        assertEquals(30, coffeeMaker.makeCoffee(recipe1, 30)); // Not enough money, should return the same amount
+        Inventory inventory = coffeeMaker.checkInventory();
+        assertEquals(15, inventory.getCoffee()); // Inventory should remain unchanged
+        assertEquals(15, inventory.getMilk());
+        assertEquals(15, inventory.getSugar());
+        assertEquals(15, inventory.getChocolate());
+    }
 
- 		inv = cm.checkInventory();
-		System.out.println("Final Inventory");
-		System.out.println(inv);
+    @Test
+    public void testPurchaseBeverageNoRecipe() {
+        assertEquals(100, coffeeMaker.makeCoffee(recipe1, 100)); // No recipe added, should return all money
+        Inventory inventory = coffeeMaker.checkInventory();
+        assertEquals(15, inventory.getCoffee()); // Inventory should remain unchanged
+        assertEquals(15, inventory.getMilk());
+        assertEquals(15, inventory.getSugar());
+        assertEquals(15, inventory.getChocolate());
+    }
 
-		int finalCoffee = getIngredientCount(inv,"Coffee");
-		int finalMilk = getIngredientCount(inv,"Milk");
-		int finalSugar = getIngredientCount(inv,"Sugar");
-		int finalChocolate = getIngredientCount(inv,"Chocolate");
+    @Test
+    public void testPurchaseBeverageInsufficientIngredients() {
+        coffeeMaker.addRecipe(recipe2); // Adding a recipe that requires more milk than available
+        assertEquals(100, coffeeMaker.makeCoffee(recipe2, 100)); // Not enough ingredients, should return all money
+        Inventory inventory = coffeeMaker.checkInventory();
+        assertEquals(15, inventory.getCoffee()); // Inventory should remain unchanged
+        assertEquals(15, inventory.getMilk());
+        assertEquals(15, inventory.getSugar());
+        assertEquals(15, inventory.getChocolate());
+    }
 
-		assertEquals((initialCoffee + 1),finalCoffee );
-		assertEquals((initialMilk + 2), finalMilk );
-		assertEquals((initialSugar + 3), finalSugar );
-		assertEquals((initialChocolate + 4), finalChocolate );
+    @Test
+    public void testGetRecipes() {
+        coffeeMaker.addRecipe(recipe1);
+        coffeeMaker.addRecipe(recipe2);
+        Recipe[] recipes = coffeeMaker.getRecipes();
+        assertNotNull(recipes);
+        assertEquals(recipe1, recipes[0]);
+        assertEquals(recipe2, recipes[1]);
+        assertNull(recipes[2]); // No third recipe
+    }
 
-	} // End of addInventoryTest method
+    @Test
+    public void testDeleteNonexistentRecipe() {
+        assertFalse(coffeeMaker.deleteRecipe(recipe1)); // Trying to delete a recipe that hasn't been added
+    }
 
+    @Test
+    public void testEditNonexistentRecipe() {
+        Recipe newRecipe = new Recipe();
+        newRecipe.setName("Nonexistent");
+        newRecipe.setPrice(60);
+        newRecipe.setAmtCoffee(2);
+        newRecipe.setAmtMilk(2);
+        newRecipe.setAmtSugar(2);
+        newRecipe.setAmtChocolate(1);
+        assertFalse(coffeeMaker.editRecipe(recipe1, newRecipe)); // Trying to edit a recipe that hasn't been added
+    }
 
-	private int getIngredientCount(String inventory, String searchIngred)
-	{
-		int rv = -1;
+    @Test(expected = RecipeException.class)
+    public void testSetRecipePriceInvalid() throws RecipeException {
+        Recipe invalidRecipe = new Recipe();
+        invalidRecipe.setPrice(-1); // Setting an invalid price
+    }
 
-		String[] allIngred = inventory.split("\n");
+    @Test(expected = RecipeException.class)
+    public void testSetRecipeAmtCoffeeInvalid() throws RecipeException {
+        Recipe invalidRecipe = new Recipe();
+        invalidRecipe.setAmtCoffee(-1); // Setting an invalid coffee amount
+    }
 
-		for (int i = 0; i < allIngred.length; i ++)
-		{
-			if (allIngred[i].contains(searchIngred) && allIngred[i].contains(":"))
-			{
-				String[] singleIngred = allIngred[i].split(":");
-				rv = Integer.parseInt(singleIngred[1].trim());
-			} // End of if - finding our ingredient and setting return
-		} // End of for looping through ingredients
+    @Test(expected = RecipeException.class)
+    public void testSetRecipeAmtMilkInvalid() throws RecipeException {
+        Recipe invalidRecipe = new Recipe();
+        invalidRecipe.setAmtMilk(-1); // Setting an invalid milk amount
+    }
 
-		return rv;
+    @Test(expected = RecipeException.class)
+    public void testSetRecipeAmtSugarInvalid() throws RecipeException {
+        Recipe invalidRecipe = new Recipe();
+        invalidRecipe.setAmtSugar(-1); // Setting an invalid sugar amount
+    }
 
-	} // End of getIngredientCount method
+    @Test(expected = RecipeException.class)
+    public void testSetRecipeAmtChocolateInvalid() throws RecipeException {
+        Recipe invalidRecipe = new Recipe();
+        invalidRecipe.setAmtChocolate(-1); // Setting an invalid chocolate amount
+    }
+}
 
-
-	// -------------------------------------------------------------------
-	// tests addRecipe method in CoffeeMaker class
-	// -------------------------------------------------------------------
-	@Test
-	public void addRecipeTest() throws Exception
-	{
-		Recipe [] recipeArray = cm.getRecipes();
-
-		assertEquals(recipeArray[0].getName(),"Coffee1" );
-		assertEquals(recipeArray[0].getAmtChocolate(),1);
-		assertEquals(recipeArray[0].getAmtCoffee(),2);
-		assertEquals(recipeArray[0].getAmtMilk(),3);
-		assertEquals(recipeArray[0].getAmtSugar(),4);
-		assertEquals(recipeArray[0].getPrice(),5);
-
-		assertEquals(recipeArray[1].getName(),"Coffee2" );
-		assertEquals(recipeArray[1].getAmtChocolate(),6);
-		assertEquals(recipeArray[1].getAmtCoffee(),7);
-		assertEquals(recipeArray[1].getAmtMilk(),8);
-		assertEquals(recipeArray[1].getAmtSugar(),9);
-		assertEquals(recipeArray[1].getPrice(),10);
-
-	} // End of addRecipeTest method
-
-
-	// -------------------------------------------------------------------
-	// tests deleteRecipe method & getRecipes methods in CoffeeMaker class
-	// -------------------------------------------------------------------
-	@Test
-	public void deleteRecipeTest() throws Exception
-	{
-		Recipe [] recipeArray = cm.getRecipes();
-
-		// Ensure that the recipe does exist prior to deleting it
-		assertEquals(recipeArray[0].getName(),"Coffee1");
-
-		String result = cm.deleteRecipe(0);
-
-		// Ensure that the recipe does NOT exist after deleting it
-		assertEquals(recipeArray[0].getName(),"");
-
-	} // End of deleteRecipeTest method
-
-
-	// -------------------------------------------------------------------
-	// tests editRecipe method in CoffeeMaker class
-	// -------------------------------------------------------------------
-	@Test
-	public void editRecipeTest() throws Exception
-	{
-		//addRecipes();
-		Recipe [] recipeArray = cm.getRecipes();
-
-		// Ensure that the recipe does exist prior to editing it
-		assertEquals(recipeArray[0].getName(),"Coffee1" );
-
-		//Set up for r3
-		r3 = new Recipe();
-		r3.setName("Coffee3");
-		r3.setAmtChocolate("4");
-		r3.setAmtCoffee("3");
-		r3.setAmtMilk("2");
-		r3.setAmtSugar("1");
-		r3.setPrice("10");
-
-		String result = cm.editRecipe(0, r3);
-
-		recipeArray = cm.getRecipes();
-
-		// Ensure that the new recipe does exist
-		assertEquals(recipeArray[0].getName(),"Coffee3" );
-
-	} // End of editRecipeTest
-
-	// -------------------------------------------------------------------
-	// tests makeCoffee method in CoffeeMaker class
-	// -------------------------------------------------------------------
-	@Test
-	public void makeCoffeeTest() throws Exception
-	{
-		int result;
-
-		// Recipe does not exist return money entered
-		result = cm.makeCoffee(2,20);
-		assertEquals(result,20);
-
-		// Enough money supplied. Make coffee and return the change. Price is 10
-		result = cm.makeCoffee(1,20);
-		assertEquals(result,10);
-
-		// Not enough money given, return money entered - Price is 10
-		result = cm.makeCoffee(1,1);
-		assertEquals(result,1);
-
-		// Enough money supplied, but we ran out of sugar so refund the amount
-		result = cm.makeCoffee(1,20);
-		assertEquals(result,20);
-
-	} // End of makeCoffeeTest
-
-} // End of CoffeeMakerTest class
